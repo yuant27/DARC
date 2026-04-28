@@ -18,9 +18,17 @@ export async function run(code:string, wallet:ethers.Wallet, provider:ethers.pro
 
   const fn = new Function('instructions', 'ethers', 'wallet', 'provider', 'address', include + code + '\n return operationList;');
 
-  const results = fn(instructions, ethers, wallet, provider, targetDARCAddress);
+  instructions.operationList.splice(0, instructions.operationList.length);
+
+  let resultList: OperationStruct[];
+  try {
+    const results = fn(instructions, ethers, wallet, provider, targetDARCAddress);
+    resultList = [...results];
+  } finally {
+    instructions.operationList.splice(0, instructions.operationList.length);
+  }
+
   const operatorAddress = wallet.address;
-  const resultList:OperationStruct[] = [...results];
 
   // add operator address to each operation
   for (let i = 0; i < resultList.length; i++) {
