@@ -10,12 +10,16 @@ describe('batch_mint_tokens', () => {
   it('encodes token classes before amounts', () => {
     const recipient = '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266';
 
-    batch_mint_tokens([recipient, recipient], [100, 200], [0, 1]);
+    batch_mint_tokens(
+      [recipient, recipient],
+      [BigInt(100), BigInt(200)],
+      [BigInt(0), BigInt(1)]
+    );
 
     expect(operationList).to.have.lengthOf(1);
     expect(operationList[0].param.UINT256_2DARRAY).to.deep.equal([
-      [0n, 1n],
-      [100n, 200n],
+      [BigInt(0), BigInt(1)],
+      [BigInt(100), BigInt(200)],
     ]);
   });
 });
