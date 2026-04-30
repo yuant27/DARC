@@ -36,7 +36,7 @@ export declare class DARC {
      * Run the program on the DARC contract.
      * @param program: the program to be run.
      */
-    entrance(program: any): Promise<void>;
+    entrance(program: any): Promise<any>;
     /**
      * Below are all DARC's dashboard functions, read parameters from the DARC contract.
      */

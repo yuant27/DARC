@@ -42,12 +42,7 @@ export class DARC {
             if (this.wallet === undefined) {
                 throw new Error("Wallet is not provided for this DARC instance.");
             }
-            try {
-                yield this.darcContract.entrance(program);
-            }
-            catch (e) {
-                console.log("Error when running the program: " + e);
-            }
+            return yield this.darcContract.entrance(program);
         });
     }
     /**
