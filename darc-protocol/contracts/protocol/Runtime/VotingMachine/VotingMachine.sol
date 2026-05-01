@@ -106,6 +106,8 @@ contract VotingMachine is MachineStateManager {
    * @notice start the voting period
    */
   function initializeVoting(uint256[] memory votingRuleIndices, Program memory currentProgram) external {
+    require(msg.sender == address(this), "Only DARC can initialize voting");
+
     // make sure the voting period is not in progress
     require(!isVotingProcesss(), "voting is already in progress");
 

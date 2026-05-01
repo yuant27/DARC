@@ -13,7 +13,7 @@ describe("VotingMachine", function () {
     await voting.setTokenForVoting(0, voter.address, 60, 1, 100);
     await voting.addVotingRuleForTest([BigNumber.from(0)], 50, 3600, 3600, false);
 
-    await voting.initializeVoting([BigNumber.from(0)], {
+    await voting.initializeVotingForTest([BigNumber.from(0)], {
       programOperatorAddress: voter.address,
       operations: [],
     });

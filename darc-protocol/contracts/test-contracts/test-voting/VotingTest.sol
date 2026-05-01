@@ -14,6 +14,10 @@ contract VotingTestContract is VotingMachine{
     this.initialize();
   }
 
+  function initializeVotingForTest(uint256[] memory votingRuleIndices, Program memory currentProgram) public {
+    this.initializeVoting(votingRuleIndices, currentProgram);
+  }
+
   function setTokenForVoting(
     uint256 tokenClassIndex,
     address voter,
