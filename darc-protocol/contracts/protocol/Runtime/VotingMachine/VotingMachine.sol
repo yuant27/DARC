@@ -106,6 +106,8 @@ contract VotingMachine is MachineStateManager {
    * @notice start the voting period
    */
   function initializeVoting(uint256[] memory votingRuleIndices, Program memory currentProgram) external {
+    require(msg.sender == address(this), "Only DARC can initialize voting");
+
     // make sure the voting period is not in progress
     require(!isVotingProcesss(), "voting is already in progress");
 
@@ -142,6 +144,9 @@ contract VotingMachine is MachineStateManager {
       minExecutingDuration
     );
     require(bIsValid, "executing end time overflow");
+    currentVotingEndTime = votingItems[latestVotingItemIndex].votingEndTime;
+    votingDeadline = votingItems[latestVotingItemIndex].votingEndTime;
+    executingPendingDeadline = votingItems[latestVotingItemIndex].executingEndTime;
     votingItems[latestVotingItemIndex].votingStatus = VotingStatus.Ongoing;
     votingItems[latestVotingItemIndex].votingRuleIndices = new uint256[](votingRuleIndices.length);
 
@@ -190,8 +195,8 @@ contract VotingMachine is MachineStateManager {
           powerOf(voter, i));
         require(bIsValid, "voting for powerYes overflow");
       } else {
-        (bIsValid, votingItems[latestVotingItemIndex].powerYes[i]) = SafeMathUpgradeable.tryAdd(
-          votingItems[latestVotingItemIndex].powerYes[i], 
+        (bIsValid, votingItems[latestVotingItemIndex].powerNo[i]) = SafeMathUpgradeable.tryAdd(
+          votingItems[latestVotingItemIndex].powerNo[i],
           powerOf(voter, i));
         require(bIsValid, "voting for powerNo overflow");
       }
@@ -215,15 +220,17 @@ contract VotingMachine is MachineStateManager {
     uint256 power = 0;
 
     // get current voting rule
-    VotingRule memory currentVotingRule = currentMachineState.votingRuleList[currentVotingRuleIdx];
+    uint256 votingRuleIndex = votingItems[latestVotingItemIndex].votingRuleIndices[currentVotingRuleIdx];
+    VotingRule memory currentVotingRule = currentMachineState.votingRuleList[votingRuleIndex];
 
     // iterate through all token class index, sum up the power of the voter
     for (uint256 tokenClassIdx = 0; tokenClassIdx < currentVotingRule.votingTokenClassList.length; tokenClassIdx++) {
+      uint256 tokenClassIndex = currentVotingRule.votingTokenClassList[tokenClassIdx];
       // get the number of token
-      uint256 numberOfTokens = currentMachineState.tokenList[tokenClassIdx].tokenBalance[voter];
+      uint256 numberOfTokens = currentMachineState.tokenList[tokenClassIndex].tokenBalance[voter];
 
       // get the voting weight
-      uint256 weight = currentMachineState.tokenList[tokenClassIdx].votingWeight;
+      uint256 weight = currentMachineState.tokenList[tokenClassIndex].votingWeight;
 
       // get the power of voter for this token class = number of tokens * voting weight
       (bIsValid, power) = SafeMathUpgradeable.tryMul(numberOfTokens, weight);
@@ -233,7 +240,7 @@ contract VotingMachine is MachineStateManager {
       (bIsValid, totalPower) = SafeMathUpgradeable.tryAdd(totalPower, power);
       require(bIsValid, "total power overflow");
     }
-    return power;
+    return totalPower;
   }
 
   /**
@@ -274,6 +281,9 @@ contract VotingMachine is MachineStateManager {
    */
   function minVotingDurationInSeconds(uint256[] memory votingRuleIndices) private view returns (uint256){
     uint256 minDuration = 0;
+    if (votingRuleIndices.length > 0) {
+      minDuration = currentMachineState.votingRuleList[votingRuleIndices[0]].votingDurationInSeconds;
+    }
     for (uint256 i = 0; i < votingRuleIndices.length; i++) {
       if ( currentMachineState.votingRuleList[votingRuleIndices[i]].votingDurationInSeconds < minDuration) {
         minDuration = currentMachineState.votingRuleList[votingRuleIndices[i]].votingDurationInSeconds;
@@ -288,6 +298,9 @@ contract VotingMachine is MachineStateManager {
    */
   function minExecutePendingProgramDurationInSeconds(uint256[] memory votingRuleIndices) private view returns (uint256){
     uint256 minDuration = 0;
+    if (votingRuleIndices.length > 0) {
+      minDuration = currentMachineState.votingRuleList[votingRuleIndices[0]].executionPendingDurationInSeconds;
+    }
     for (uint256 i = 0; i < votingRuleIndices.length; i++) {
       if (currentMachineState.votingRuleList[votingRuleIndices[i]].executionPendingDurationInSeconds < minDuration) {
         minDuration = currentMachineState.votingRuleList[votingRuleIndices[i]].executionPendingDurationInSeconds;
