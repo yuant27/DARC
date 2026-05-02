@@ -11,8 +11,12 @@ import { objectMethod } from "@babel/types";
 
 export let operationList: OperationStruct[] = [];
 
-export function batch_mint_tokens(addressArray: string[], amountArray: bigint[], tokenClass: bigint[]) {
-  let operation = op_batch_mint_tokens(addressArray, amountArray, tokenClass);
+export function clearOperationList() {
+  operationList.length = 0;
+}
+
+export function batch_mint_tokens(addressArray: string[], tokenClass: bigint[] | number[], amountArray: bigint[] | number[]) {
+  let operation = op_batch_mint_tokens(addressArray, tokenClass, amountArray);
   operationList.push(operation);
 }
 

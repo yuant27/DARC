@@ -1,6 +1,7 @@
 import {run, deployDARC, DARC_VERSION} from '../../src/darcjs';
 import { ethers } from 'ethers';
 import * as DARC from '../../src/DARC/DARC';
+import * as instructions from '../../src/SDK/includes';
 import 'mocha';
 import { expect } from 'chai';
 
@@ -22,11 +23,24 @@ batch_mint_tokens([ "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
 [0, 1], [100,200]);
 `;
 
-describe.only('Runtime execution test', () => {
+describe('Runtime execution test', () => {
+  it('should build mint operations with token classes before amounts', () => {
+    instructions.clearOperationList();
+    instructions.batch_mint_tokens(
+      ["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"],
+      [0],
+      [100]
+    );
+
+    expect(instructions.operationList).to.have.lengthOf(1);
+    expect(instructions.operationList[0].param.UINT256_2DARRAY[0][0]).to.equal(BigInt(0));
+    expect(instructions.operationList[0].param.UINT256_2DARRAY[1][0]).to.equal(BigInt(100));
+  });
+
   it('should run the program', async () => {
     const darc_contract_address = await deployDARC(DARC_VERSION.Test, signer);
 
-    await run(code, signer, provider, my_wallet_address).then(async ()=>{
+    await run(code, signer, provider, darc_contract_address).then(async ()=>{
 
       const attached_local_darc2 = new DARC.DARC({
         address: darc_contract_address,
