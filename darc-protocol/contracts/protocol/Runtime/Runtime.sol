@@ -95,24 +95,28 @@ contract Runtime is Executable, PaymentCheck{
       return "The pending program is executed after voting and approval.";
     }
 
-    // If the current state is voting but has reached the voting deadline, 
-    // terminate the voting and change to the execution pending state.abi
+    // If the current state is voting but has reached the voting deadline,
+    // finalize the vote before accepting an execute-pending operation.
     else if (finiteState == FiniteState.VOTING 
     && block.timestamp >= votingDeadline 
     && block.timestamp < executingPendingDeadline) {
-      finiteState = FiniteState.EXECUTING_PENDING;
-      executeProgram(program);
-      return "The program is executed.";
+      finalizeVoting();
+      if (finiteState == FiniteState.EXECUTING_PENDING) {
+        require(validateExecutePendingProgram(program), "Invalid executing pending program.");
+        executePendingProgram(program);
+        return "The pending program is executed after voting and approval.";
+      }
+      return "The voting has failed.";
     }
 
     // If the current state is execution pending or voting but has reached the execution pending deadline,
-    // terminate the execution pending and change to the idle state, and run the program.
+    // terminate the execution pending and change to the idle state.
     else if ( (finiteState == FiniteState.EXECUTING_PENDING || finiteState == FiniteState.VOTING)
     && block.timestamp >= executingPendingDeadline) {
       finiteState = FiniteState.IDLE;
-      require(validateExecutePendingProgram(program), "[Error 003]The program is not a valid execute pending program.");
-      executeProgram(program);
-      return "The program is executed.";
+      votingDeadline = 0;
+      executingPendingDeadline = 0;
+      return "The pending program has expired.";
     }
 
     return "Program terminated.";
@@ -137,10 +141,14 @@ contract Runtime is Executable, PaymentCheck{
    */
   function validateVoteProgram(Program memory program) internal view returns (bool) {
     //1. check if the program is empty
-    if (program.operations.length == 0) { return false; }
+    if (program.operations.length != 1) { return false; }
+    if (program.operations[0].opcode != EnumOpcode.VOTE) { return false; }
+    if (program.operations[0].param.BOOL_ARRAY.length != votingItems[latestVotingItemIndex].votingRuleIndices.length) {
+      return false;
+    }
 
     //2. check if the program is valid
-    return true;//ProgramValidator.validate();
+    return true;
   }
 
   /**
@@ -151,10 +159,11 @@ contract Runtime is Executable, PaymentCheck{
    */
   function validateExecutePendingProgram(Program memory program) internal view returns (bool) {
     //1. check if the program is empty
-    if (program.operations.length == 0) { return false; }
+    if (program.operations.length != 1) { return false; }
+    if (program.operations[0].opcode != EnumOpcode.EXECUTE_PROGRAM) { return false; }
 
     //2. check if the program is valid
-    return true; //ProgramValidator.validate(currentProgram);
+    return true;
   }
 
   /**
@@ -172,15 +181,42 @@ contract Runtime is Executable, PaymentCheck{
     //1. check if the program is valid
     require(validateVoteProgram(program), "Invalid vote program");
 
-    //2. execute the program
-    execute(program);
+    //2. record the vote directly; arbitrary operations are not allowed during voting.
+    this.vote(program.programOperatorAddress, program.operations[0].param.BOOL_ARRAY);
   }
 
   function executePendingProgram(Program memory program) internal {
     //1. check if the program is valid
-    require(validateProgram(program), "Invalid program");
+    require(validateExecutePendingProgram(program), "Invalid executing pending program.");
+    require(finiteState == FiniteState.EXECUTING_PENDING, "No pending program to execute.");
+    require(!votingItems[latestVotingItemIndex].bIsProgramExecuted, "Pending program already executed.");
 
-    //2. execute the program
-    execute(program);
+    votingItems[latestVotingItemIndex].bIsProgramExecuted = true;
+    finiteState = FiniteState.IDLE;
+    votingDeadline = 0;
+    executingPendingDeadline = 0;
+
+    // The stored program already passed sandbox checks and voting.
+    executeProgram_Executable(votingItems[latestVotingItemIndex].program, false);
+  }
+
+  function finalizeVoting() internal {
+    require(finiteState == FiniteState.VOTING, "Voting is not in progress.");
+    require(block.timestamp >= votingDeadline, "Voting period has not ended.");
+
+    VotingStatus[] memory result = this.checkVotingResults();
+    for (uint256 i = 0; i < result.length; i++) {
+      if (result[i] == VotingStatus.Ended_AND_Failed) {
+        votingItems[latestVotingItemIndex].votingStatus = VotingStatus.Ended_AND_Failed;
+        finiteState = FiniteState.IDLE;
+        votingDeadline = 0;
+        executingPendingDeadline = 0;
+        return;
+      }
+    }
+
+    votingItems[latestVotingItemIndex].votingStatus = VotingStatus.Ended_AND_Passed;
+    finiteState = FiniteState.EXECUTING_PENDING;
+    votingDeadline = 0;
   }
 }
