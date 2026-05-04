@@ -1,7 +1,8 @@
 import * as instructions from "./includes";
-import { ethers, Contract } from 'ethers';
-import { OperationStruct, OperationStructOutput, ProgramStruct } from "./struct/basicTypes";
+import { ethers } from 'ethers';
+import { OperationStruct, ProgramStruct } from "./struct/basicTypes";
 import * as DARC from "../DARC/DARC";
+import { DARC_VERSION } from "../darcBinary/darcBinary";
 /**
  * This function takes in a string of code and returns a program struct
  * @param code The code to be run
@@ -16,6 +17,7 @@ export async function run(code:string, wallet:ethers.Wallet, provider:ethers.pro
     include += `let ${key} = instructions.${key};\n`;
   }
 
+  instructions.operationList.length = 0;
   const fn = new Function('instructions', 'ethers', 'wallet', 'provider', 'address', include + code + '\n return operationList;');
 
   const results = fn(instructions, ethers, wallet, provider, targetDARCAddress);
@@ -35,7 +37,7 @@ export async function run(code:string, wallet:ethers.Wallet, provider:ethers.pro
 
   const attachedDARC = new DARC.DARC({
     address: targetDARCAddress,
-    version: DARC.DARC_VERSION.Test,
+    version: DARC_VERSION.Test,
     wallet: wallet,
   });
 

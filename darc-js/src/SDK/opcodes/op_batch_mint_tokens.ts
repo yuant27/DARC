@@ -1,7 +1,7 @@
 import { ethers } from "ethers";  
 import {OperationStruct} from "../struct/basicTypes";
 
-export function op_batch_mint_tokens(addressArray: string[], tokenClass: bigint[], amountArray: bigint[]): OperationStruct {
+export function op_batch_mint_tokens(addressArray: string[], tokenClass: bigint[] | number[], amountArray: bigint[] | number[]): OperationStruct {
   // make sure the length of addressArray and amountArray are the same
   if (addressArray.length != amountArray.length) {
     throw new Error("The length of addressArray and amountArray are different");

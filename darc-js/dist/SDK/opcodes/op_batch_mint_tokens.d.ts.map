@@ -1,0 +1,1 @@
+{"version":3,"file":"op_batch_mint_tokens.d.ts","sourceRoot":"","sources":["../../../src/SDK/opcodes/op_batch_mint_tokens.ts"],"names":[],"mappings":"AACA,OAAO,EAAC,eAAe,EAAC,MAAM,sBAAsB,CAAC;AAErD,wBAAgB,oBAAoB,CAAC,YAAY,EAAE,MAAM,EAAE,UAAU,EAAE,MAAM,EAAE,GAAG,EAAE,MAAM,EAAE,WAAW,EAAE,MAAM,EAAE,GAAG,EAAE,MAAM,GAAG,eA4B7G"}

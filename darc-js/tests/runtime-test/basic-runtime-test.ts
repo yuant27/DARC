@@ -22,7 +22,7 @@ batch_mint_tokens([ "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
 [0, 1], [100,200]);
 `;
 
-describe.only('Runtime execution test', () => {
+describe('Runtime execution test', () => {
   it('should run the program', async () => {
     const darc_contract_address = await deployDARC(DARC_VERSION.Test, signer);
 
