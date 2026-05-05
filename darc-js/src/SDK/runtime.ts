@@ -11,6 +11,8 @@ import * as DARC from "../DARC/DARC";
  * @returns 
  */
 export async function run(code:string, wallet:ethers.Wallet, provider:ethers.providers.Provider, targetDARCAddress:string) {
+  instructions.operationList.length = 0;
+
   let include = '';
   for (const key in instructions) {
     include += `let ${key} = instructions.${key};\n`;
