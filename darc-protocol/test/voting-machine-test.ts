@@ -90,19 +90,10 @@ describe("VotingMachine", function () {
 
     await runtime.setTokenForVoting(0, voter.address, 60, 1, 100);
     await runtime.addVotingRuleForTest([BigNumber.from(0)], 50, 3600, 3600, false);
-    await runtime.requireVotingForAllProgramsForTest(0);
-
-    await (
-      await runtime.entranceForTest({
-        programOperatorAddress: owner.address,
-        operations: [
-          operation(owner.address, OPCODE_MINT_TOKENS, {
-            UINT256_2DARRAY: [[BigNumber.from(0)], [BigNumber.from(1)]],
-            ADDRESS_2DARRAY: [[owner.address]],
-          }),
-        ],
-      })
-    ).wait();
+    await runtime.initializeVotingForRuntimeTest([BigNumber.from(0)], {
+      programOperatorAddress: owner.address,
+      operations: [],
+    });
 
     expect(await runtime.finiteState()).to.equal(2);
 

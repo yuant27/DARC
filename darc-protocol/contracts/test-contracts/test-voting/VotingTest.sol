@@ -74,6 +74,10 @@ contract RuntimeVotingTestContract is Runtime {
     return runtimeEntrance(program);
   }
 
+  function initializeVotingForRuntimeTest(uint256[] memory votingRuleIndices, Program memory currentProgram) public {
+    this.initializeVoting(votingRuleIndices, currentProgram);
+  }
+
   function setTokenForVoting(
     uint256 tokenClassIndex,
     address voter,
@@ -108,43 +112,4 @@ contract RuntimeVotingTestContract is Runtime {
     return votingRuleIndex;
   }
 
-  function requireVotingForAllProgramsForTest(uint256 votingRuleIndex) public {
-    ConditionNode[] memory conditionNodes = new ConditionNode[](1);
-    conditionNodes[0] = ConditionNode(
-      0,
-      EnumConditionNodeType.BOOLEAN_TRUE,
-      EnumLogicalOperatorType.UNDEFINED,
-      EnumConditionExpression.UNDEFINED,
-      new uint256[](0),
-      NodeParam(
-        new uint256[](0),
-        new address[](0),
-        new string[](0),
-        new uint256[][](0),
-        new address[][](0),
-        new string[][](0)
-      )
-    );
-
-    currentMachineState.beforeOpPlugins.push(Plugin(
-      EnumReturnType.SANDBOX_NEEDED,
-      100,
-      conditionNodes,
-      0,
-      "sandbox before voting",
-      true,
-      true,
-      true
-    ));
-    currentMachineState.afterOpPlugins.push(Plugin(
-      EnumReturnType.VOTING_NEEDED,
-      100,
-      conditionNodes,
-      votingRuleIndex,
-      "vote required",
-      true,
-      true,
-      false
-    ));
-  }
 }
