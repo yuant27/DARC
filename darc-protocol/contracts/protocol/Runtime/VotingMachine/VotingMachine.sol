@@ -106,6 +106,8 @@ contract VotingMachine is MachineStateManager {
    * @notice start the voting period
    */
   function initializeVoting(uint256[] memory votingRuleIndices, Program memory currentProgram) external {
+    require(msg.sender == address(this), "Only DARC can initialize voting");
+
     // make sure the voting period is not in progress
     require(!isVotingProcesss(), "voting is already in progress");
 
@@ -142,6 +144,9 @@ contract VotingMachine is MachineStateManager {
       minExecutingDuration
     );
     require(bIsValid, "executing end time overflow");
+    currentVotingEndTime = votingItems[latestVotingItemIndex].votingEndTime;
+    votingDeadline = votingItems[latestVotingItemIndex].votingEndTime;
+    executingPendingDeadline = votingItems[latestVotingItemIndex].executingEndTime;
     votingItems[latestVotingItemIndex].votingStatus = VotingStatus.Ongoing;
     votingItems[latestVotingItemIndex].votingRuleIndices = new uint256[](votingRuleIndices.length);
 
@@ -173,6 +178,7 @@ contract VotingMachine is MachineStateManager {
    */
   function vote(address voter, bool[] memory votes) external {
     require(isVotingProcesss(), "voting is not in progress");
+    require(msg.sender == address(this) || msg.sender == voter, "Cannot vote for another address");
     require(block.timestamp < currentVotingEndTime, "voting period has ended");
     require(!voted[voter][latestVotingItemIndex], "voter has already voted");
     require(votes.length == votingItems[latestVotingItemIndex].votingRuleIndices.length,
@@ -190,8 +196,8 @@ contract VotingMachine is MachineStateManager {
           powerOf(voter, i));
         require(bIsValid, "voting for powerYes overflow");
       } else {
-        (bIsValid, votingItems[latestVotingItemIndex].powerYes[i]) = SafeMathUpgradeable.tryAdd(
-          votingItems[latestVotingItemIndex].powerYes[i], 
+        (bIsValid, votingItems[latestVotingItemIndex].powerNo[i]) = SafeMathUpgradeable.tryAdd(
+          votingItems[latestVotingItemIndex].powerNo[i],
           powerOf(voter, i));
         require(bIsValid, "voting for powerNo overflow");
       }
@@ -215,15 +221,17 @@ contract VotingMachine is MachineStateManager {
     uint256 power = 0;
 
     // get current voting rule
-    VotingRule memory currentVotingRule = currentMachineState.votingRuleList[currentVotingRuleIdx];
+    uint256 votingRuleIndex = votingItems[latestVotingItemIndex].votingRuleIndices[currentVotingRuleIdx];
+    VotingRule memory currentVotingRule = currentMachineState.votingRuleList[votingRuleIndex];
 
     // iterate through all token class index, sum up the power of the voter
     for (uint256 tokenClassIdx = 0; tokenClassIdx < currentVotingRule.votingTokenClassList.length; tokenClassIdx++) {
+      uint256 tokenClassIndex = currentVotingRule.votingTokenClassList[tokenClassIdx];
       // get the number of token
-      uint256 numberOfTokens = currentMachineState.tokenList[tokenClassIdx].tokenBalance[voter];
+      uint256 numberOfTokens = currentMachineState.tokenList[tokenClassIndex].tokenBalance[voter];
 
       // get the voting weight
-      uint256 weight = currentMachineState.tokenList[tokenClassIdx].votingWeight;
+      uint256 weight = currentMachineState.tokenList[tokenClassIndex].votingWeight;
 
       // get the power of voter for this token class = number of tokens * voting weight
       (bIsValid, power) = SafeMathUpgradeable.tryMul(numberOfTokens, weight);
@@ -233,40 +241,8 @@ contract VotingMachine is MachineStateManager {
       (bIsValid, totalPower) = SafeMathUpgradeable.tryAdd(totalPower, power);
       require(bIsValid, "total power overflow");
     }
-    return power;
+    return totalPower;
   }
-
-  /**
-   * @notice Try to end the voting period if the voting period has ended
-   * If vote is not passed after the voting deadline, change the finite state to IDLE;
-   * Otherwise, change the finite state to PENDING, and wait for the executing the pending program
-   */
-  function endVoting() private {
-    require(block.timestamp >= currentVotingEndTime, "voting period has not ended");
-    VotingStatus[] memory result = this.checkVotingResults();
-    for (uint256 i = 0; i < result.length; i++) {
-
-      // if any voting rule failed, the whole voting process failed,
-      // change the finite state to IDLE
-      if (result[i] == VotingStatus.Ended_AND_Failed) {
-        finiteState = FiniteState.IDLE;
-        votingDeadline = 0;
-        executingPendingDeadline = 0;
-        return;
-      }
-    }
-
-    // if all voting rules passed, change the finite state to PENDING if timestamp < executingPendingDeadline
-    if (block.timestamp < executingPendingDeadline) {
-      finiteState = FiniteState.EXECUTING_PENDING;
-      votingDeadline = 0;
-    } else {
-      // if timestamp >= executingPendingDeadline, change the finite state to IDLE
-      finiteState = FiniteState.IDLE;
-      votingDeadline = 0;
-      executingPendingDeadline = 0;
-    }
-  } 
 
   /**
    * @notice Find the minimum voting duration in a list of voting policies in seconds
@@ -274,6 +250,9 @@ contract VotingMachine is MachineStateManager {
    */
   function minVotingDurationInSeconds(uint256[] memory votingRuleIndices) private view returns (uint256){
     uint256 minDuration = 0;
+    if (votingRuleIndices.length > 0) {
+      minDuration = currentMachineState.votingRuleList[votingRuleIndices[0]].votingDurationInSeconds;
+    }
     for (uint256 i = 0; i < votingRuleIndices.length; i++) {
       if ( currentMachineState.votingRuleList[votingRuleIndices[i]].votingDurationInSeconds < minDuration) {
         minDuration = currentMachineState.votingRuleList[votingRuleIndices[i]].votingDurationInSeconds;
@@ -288,6 +267,9 @@ contract VotingMachine is MachineStateManager {
    */
   function minExecutePendingProgramDurationInSeconds(uint256[] memory votingRuleIndices) private view returns (uint256){
     uint256 minDuration = 0;
+    if (votingRuleIndices.length > 0) {
+      minDuration = currentMachineState.votingRuleList[votingRuleIndices[0]].executionPendingDurationInSeconds;
+    }
     for (uint256 i = 0; i < votingRuleIndices.length; i++) {
       if (currentMachineState.votingRuleList[votingRuleIndices[i]].executionPendingDurationInSeconds < minDuration) {
         minDuration = currentMachineState.votingRuleList[votingRuleIndices[i]].executionPendingDurationInSeconds;
@@ -342,7 +324,8 @@ contract VotingMachine is MachineStateManager {
    */
   function checkVotingResult(uint256 idx) external view returns (VotingStatus) {
     bool bIsValid = false;
-    uint256 threshold = currentMachineState.votingRuleList[idx].approvalThresholdPercentage;
+    uint256 votingRuleIndex = votingItems[latestVotingItemIndex].votingRuleIndices[idx];
+    uint256 threshold = currentMachineState.votingRuleList[votingRuleIndex].approvalThresholdPercentage;
     uint256 currentYes = votingItems[latestVotingItemIndex].powerYes[idx];
     uint256 currentNo = votingItems[latestVotingItemIndex].powerNo[idx];
     uint256 totalVotingPower = votingItems[latestVotingItemIndex].totalPower[idx];
@@ -352,7 +335,7 @@ contract VotingMachine is MachineStateManager {
     // then currentYes / totalVotingPower > threshold % will pass the voting
     uint256 leftValue = 0;
     uint256 rightValue = 0;
-    if (currentMachineState.votingRuleList[idx].bIsAbsoluteMajority){
+    if (currentMachineState.votingRuleList[votingRuleIndex].bIsAbsoluteMajority){
       // currentYes * 100 > totalVotingPower * threshold
       (bIsValid, leftValue) = SafeMathUpgradeable.tryMul(currentYes, 100);
       require(bIsValid, "currentYes overflow");
